@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC
+    "-//W3C//DTD XHTML 1.1 plus MathML 2.0 plus SVG 1.1//EN"
+    "http://www.w3.org/2002/04/xhtml-math-svg/xhtml-math-svg.dtd">
+<html xml:lang='en' xmlns:svg='http://www.w3.org/2000/svg' xmlns='http://www.w3.org/1999/xhtml'>
+<head><meta content='application/xhtml+xml;charset=utf-8' http-equiv='Content-type' /><title>Quark Games Erlang Lightning Workshops</title></head>
+<body>
+<h1 id='quark_games_erlang_lightning_workshops'>Quark Games Erlang Lightning Workshops</h1>
+
+<h2 id='week_i_specifying_the_chat_server'>Week I Specifying the chat server</h2>
+
+<h3 id='sum_up_erlang_in_a_few_sentences'>Sum up Erlang in a few sentences</h3>
+
+<p>A programming language featuring lightweight processes (make millions on a machine) that share no memory (aka people/actors) which can communicate with each other asynchronously (mailbox) or synchronously (telephone). Communication can occur between people regardless of where they live (on the same machine or different) with the same syntax.</p>
+
+<p>Erlang&#8217;s scheduler is latency optimized meaning that message sending and passing takes priority when coordinating processes.</p>
+
+<h3 id='chat_server'>Chat Server</h3>
+
+<h4 id='requirements'>Requirements</h4>
+
+<ul>
+<li>Server in the cloud, client in the browser</li>
+
+<li>Handle multiple (many) users</li>
+
+<li>Handle multiple rooms</li>
+
+<li>Notify users of joins and leaves</li>
+
+<li>Handle chat (duh)</li>
+
+<li>Be extensible enough to add functionality later if we need it (developers all groan at the sound of this one)</li>
+</ul>
+
+<p>How should we design this chat server?</p>
+
+<h4 id='option_a'>Option A</h4>
+
+<ul>
+<li>One process to handle the entire event loop</li>
+
+<li>Users from the browser connect to process, send/receive data</li>
+
+<li>All state is contained in this monolithic program</li>
+</ul>
+
+<h4 id='option_b'>Option B</h4>
+
+<ul>
+<li>Two processes, one to handle all the user connections (process X), one to handle the chat room itself (process Y)</li>
+
+<li>Users from the browser connect to process X and send and receive messages from X.</li>
+
+<li>X notifies Y of when users issue chats and process Y relays messages back to X, indicating for each message what users should receive it, depending on chat room state.</li>
+
+<li>State is shared between X and Y so Y knows who&#8217;s online and what rooms they are in.</li>
+</ul>
+
+<h4 id='option_c'>Option C</h4>
+
+<ul>
+<li>One process <em>per user</em> and one process <em>per chat room</em>.</li>
+
+<li>Users from the browser talk to their designated process.</li>
+
+<li>That process communicates with the corresponding chat room process</li>
+
+<li>All state about a particular room is contained in that room&#8217;s process. All state about a particular user is contained in that user&#8217;s process.</li>
+</ul>
+
+<p>What option would you take?</p>
+<hr />
+<p>Erlang programmers choose option C every time. This is not the correct choice in other programming languages! For most languages, anything but option A is madness and hard to build safely and in a reasonable amount of time (multithreading, STM, semaphores, mutexes, etc&#8230; = hard).</p>
+
+<h2 id='specification'>Specification</h2>
+
+<h3 id='chat_room_process_requirements'>Chat Room Process Requirements</h3>
+
+<h4 id='init'>init</h4>
+
+<ul>
+<li>Room name</li>
+
+<li>Optional room topic</li>
+</ul>
+
+<h4 id='terminate'>terminate</h4>
+
+<ul>
+<li>Delete room</li>
+</ul>
+
+<h4 id='emit'>emit</h4>
+
+<ul>
+<li>Broadcast message to all users in room</li>
+</ul>
+
+<h4 id='receive'>receive</h4>
+
+<ul>
+<li>Receive a message from a user</li>
+</ul>
+
+<h4 id='join'>join</h4>
+
+<ul>
+<li>Add a user to the roster</li>
+</ul>
+
+<h4 id='leave'>leave</h4>
+
+<ul>
+<li>Remove a user from the roster</li>
+</ul>
+
+<h3 id='user_process_requirements'>User Process Requirements</h3>
+
+<h4 id='init'>init</h4>
+
+<ul>
+<li>Called when a user logs on</li>
+
+<li>Initializes with user name</li>
+</ul>
+
+<h4 id='terminate'>terminate</h4>
+
+<ul>
+<li>Destroy process when user leaves</li>
+</ul>
+
+<h4 id='send'>send</h4>
+
+<ul>
+<li>Send a message to a chat channel</li>
+</ul>
+
+<h4 id='receive'>receive</h4>
+
+<ul>
+<li>Receive a chat message from a channel and send it to client</li>
+</ul>
+
+<h4 id='join_room'>join_room</h4>
+
+<ul>
+<li>Join a chat room</li>
+</ul>
+
+<h4 id='leave_room'>leave_room</h4>
+
+<ul>
+<li>Leave a chat room</li>
+</ul>
+</body></html>
