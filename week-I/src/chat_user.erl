@@ -1,4 +1,5 @@
 -module(chat_user).
+-include_lib("eunit/include/eunit.hrl").
 
 -export([
          init/1,
@@ -10,7 +11,7 @@
         ]).
 
 init([User]) ->
-    ok.
+    spawn_link(?MODULE, run, [User]).
 
 terminate() ->
     ok.
@@ -26,3 +27,14 @@ join(Room) ->
 
 leave(Room) ->
     ok.
+
+run(User) ->
+    receive
+        _ ->
+            io:format("Message received"),
+            run(User)
+    after
+        1000*60*60 ->
+            io:format("Disconnecting after 1 hour of inactivity"),
+            terminate()
+    end.

@@ -1,0 +1,17 @@
+{application, simple_chat_server,
+ [
+  {id, "Simple Chat Server"},
+  {description, "Simple chat server"},
+  {sub_description, "Used for erlang instruction in a "
+   "Quark Games workshop series"},
+  {vsn, "0.0.1"},
+  % The following line is overwritten by the Makefile
+  {modules, []},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]
+}.

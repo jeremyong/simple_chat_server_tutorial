@@ -78,6 +78,10 @@ hard).
 
 + Delete room
 
+#### change_topic
+
++ Change room topic
+
 #### emit
 
 + Broadcast message to all users in room
