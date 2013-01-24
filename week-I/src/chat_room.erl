@@ -19,6 +19,12 @@ init([Name, Topic]) ->
 
 run(Name, Topic, Users) ->
     receive
+        {roster, From} ->
+            From ! {roster, Users},
+            run(Name, Topic, Users);
+        {join, User} ->
+            io:format("~p joined room ~p", [User, Name]),
+            run(Name, Topic, [User|Users]);
         _ ->
             io:format("Message received"),
             run(Name, Topic, Users)
@@ -29,6 +35,7 @@ run(Name, Topic, Users) ->
     end.
 
 terminate(Room) ->
+    exit(Room, "User terminated room"),
     ok.
 
 change_topic(Room, Topic) ->
@@ -41,29 +48,30 @@ recv(Room, User, Msg) ->
     ok.
 
 join(Room, User) ->
-    ok.
+    Room ! {join, User}.
 
 leave(Room, User) ->
     ok.
 
 roster(Room) ->
-    ok.
+    Room ! {roster, self()},
+    receive
+        {roster, Roster} ->
+            {ok, Roster}
+    end.
 
 %% Unit tests
 
 % I can start a room
 start_room_test() ->
-    ?debugFmt("Here", []),
     {ok, RoomPid} = chat_room:init(["Room", "Topic"]),
-    %?assert(is_process_alive(RoomPid)).
-    ?assert(false).
+    ?assert(is_process_alive(RoomPid)).
 
 % Terminating test
 terminate_test() ->
     {ok, RoomPid} = chat_room:init(["Room", "Topic"]),
-    ok = chat_room:terminate(RoomPid),
-    %?assertNot(is_process_alive(RoomPid)).
-    ?assert(false).
+    chat_room:terminate(RoomPid),
+    ?assertNot(is_process_alive(RoomPid)).
 
 % Joining a room should return the room topic
 join_returns_room_topic_test() ->
@@ -91,4 +99,6 @@ send_triggers_emit_test() ->
 
 % Requesting the roster returns it
 roster_test() ->
+    {ok, RoomPid} = chat_room:init(["Room", "Topic"]),
+
     ?assert(false).
