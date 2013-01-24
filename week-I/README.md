@@ -11,8 +11,7 @@ communicate with each other asynchronously (mailbox) or synchronously
 where they live (on the same machine or different) with the same
 syntax.
 
-Erlang's scheduler is latency optimized meaning that message sending
-and passing takes priority when coordinating processes.
+Erlang's scheduler is latency optimized (not throughput optimized).
 
 ### Chat Server
 
