@@ -54,7 +54,7 @@ function sendTxt() {
     if(websocket.readyState == websocket.OPEN){
         txt = $("#send_txt").val();
         websocket.send(txt);
-        showScreen('sending: ' + txt);
+        //showScreen('sending: ' + txt);
     } else {
         showScreen('websocket is not connected');
     };
@@ -76,7 +76,10 @@ function onMessage(evt) {
 };
 
 function showScreen(txt) {
-    $('#output').prepend('<p>' + txt + '</p>');
+    //$('#output').prepend('<p>' + txt + '</p>');
+    var tab = $('#output table');
+    tab.append('<tr><td>' + txt + '</td></tr>');
+    $('#output table').scrollTop(tab.height());
 };
 
 function clearScreen()
