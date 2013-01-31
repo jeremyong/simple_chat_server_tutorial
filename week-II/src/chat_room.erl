@@ -109,8 +109,10 @@ handle_call(_Request, _From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
 handle_cast({join, User}, State = #state{users = Users}) ->
+    io:format("~p joined room ~p~n", [User, State#state.name]),
     {noreply, State#state{users = [User|Users]}};
 handle_cast({leave, User}, State = #state{users = Users}) ->
+    io:format("~p left room ~p~n", [User, State#state.name]),
     Users1 = lists:delete(User, Users),
     {noreply, State#state{users = Users1}};
 handle_cast({change_topic, Topic}, State) ->

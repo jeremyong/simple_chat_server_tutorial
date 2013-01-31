@@ -110,14 +110,18 @@ handle_call(_Request, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({join, User}, State = #state{users = Users}) ->
     {noreply, State#state{users = [User|Users]}};
+
 handle_cast({leave, User}, State = #state{users = Users}) ->
     Users1 = lists:delete(User, Users),
     {noreply, State#state{users = Users1}};
+
 handle_cast({change_topic, Topic}, State) ->
     {noreply, State#state{topic = Topic}};
+
 handle_cast({emit, User, Sender, Msg}, State) ->
     User ! [{room, State#state.name}, {sender, Sender}, {msg, Msg}],
     {noreply, State};
+
 handle_cast({recv, Sender, Msg}, State) ->
     lists:map(fun(User) ->
                       User ! [{room, State#state.name},
