@@ -1,154 +1,239 @@
+%%%-------------------------------------------------------------------
+%%% File    : chat_room.erl
+%%% Author  :  <jeremy@galois>
+%%% Description : Chat server room
+%%%
+%%% Created : 30 Jan 2013 by  <jeremy@galois>
+%%%-------------------------------------------------------------------
 -module(chat_room).
+
 -include_lib("eunit/include/eunit.hrl").
 
+-behaviour(gen_server).
+%%--------------------------------------------------------------------
+%% Include files
+%%--------------------------------------------------------------------
+
+%%--------------------------------------------------------------------
+%% External exports
 -export([
-         init/1,
-         run/3,
-         terminate/1,
-         change_topic/2,
+         start_link/2,
          read_topic/1,
-         emit/4,
-         recv/3,
+         change_topic/2,
+         roster/1,
          join/2,
          leave/2,
-         roster/1
+         emit/4,
+         recv/3
         ]).
 
-init([Name, Topic]) ->
-    Pid = spawn(?MODULE, run, [Name, Topic, []]),
-    {ok, Pid}.
+%% gen_server callbacks
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 
-run(Name, Topic, Users) ->
-    receive
-        {change_topic, Topic1} ->
-            run(Name, Topic1, Users);
-        {read_topic, User} ->
-            User ! {topic, Topic},
-            run(Name, Topic, Users);
-        {roster, From} ->
-            From ! {roster, Users},
-            run(Name, Topic, Users);
-        {join, User} ->
-            io:format("~p joined room ~p", [User, Name]),
-            run(Name, Topic, [User|Users]);
-        {leave, User} ->
-            Users1 = lists:delete(User, Users),
-            run(Name, Topic, Users1);
-        {recv, User, Msg} ->
-            lists:map(fun(U) ->
-                              emit(self(), U, User, Msg)
-                      end, Users),
-            run(Name, Topic, Users);
-        _ ->
-            io:format("Message received"),
-            run(Name, Topic, Users)
-    after
-        3600000 ->
-            io:format("Disconnecting after 1 hour of inactivity"),
-            terminate(self())
-    end.
+-record(state, {name, topic, users = []}).
 
-terminate(Room) ->
-    exit(Room, "User terminated room"),
-    ok.
+%%====================================================================
+%% External functions
+%%====================================================================
+%%--------------------------------------------------------------------
+%% Function: start_link/2
+%% Description: Starts the chat room with a room name and topic
+%%--------------------------------------------------------------------
+start_link(Name, Topic) ->
+    gen_server:start_link({local, Name}, ?MODULE, [Name, Topic], []).
 
 change_topic(Room, Topic) ->
-    Room ! {change_topic, Topic},
-    ok.
+    gen_server:cast(Room, {change_topic, Topic}).
 
 read_topic(Room) ->
-    Room ! {read_topic, self()},
-    receive
-        {topic, Topic} ->
-            {ok, Topic}
-    end.
+    gen_server:call(Room, read_topic).
 
 emit(Room, User, Sender, Msg) ->
-    User ! [{room, Room}, {sender, Sender}, {msg, Msg}],
-    ok.
+    gen_server:cast(Room, {emit, User, Sender, Msg}).
 
 recv(Room, User, Msg) ->
-    Room ! {recv, User, Msg},
-    ok.
+    gen_server:cast(Room, {recv, User, Msg}).
 
 join(Room, User) ->
-    Room ! {join, User},
-    ok.
+    gen_server:cast(Room, {join, User}).
 
 leave(Room, User) ->
-    Room ! {leave, User},
-    ok.
+    gen_server:cast(Room, {leave, User}).
 
 roster(Room) ->
-    Room ! {roster, self()},
-    receive
-        {roster, Roster} ->
-            {ok, Roster}
-    end.
+    gen_server:call(Room, roster).
 
-%% Unit tests
+%%====================================================================
+%% Server functions
+%%====================================================================
 
-% I can start a room
-start_room_test() ->
-    {ok, RoomPid} = init(["Room", "Topic"]),
-    ?assert(is_process_alive(RoomPid)).
+%%--------------------------------------------------------------------
+%% Function: init/1
+%% Description: Initiates the server
+%% Returns: {ok, State}          |
+%%          {ok, State, Timeout} |
+%%          ignore               |
+%%          {stop, Reason}
+%%--------------------------------------------------------------------
+init([Name, Topic]) ->
+    {ok, #state{name = Name, topic = Topic}}.
 
-% Can read the room topic
-read_topic_test() ->
-    {ok, RoomPid} = init(["Room", "Topic"]),
-    {ok, Topic} = read_topic(RoomPid),
-    ?assertEqual(Topic, "Topic").
+%%--------------------------------------------------------------------
+%% Function: handle_call/3
+%% Description: Handling call messages
+%% Returns: {reply, Reply, State}          |
+%%          {reply, Reply, State, Timeout} |
+%%          {noreply, State}               |
+%%          {noreply, State, Timeout}      |
+%%          {stop, Reason, Reply, State}   | (terminate/2 is called)
+%%          {stop, Reason, State}            (terminate/2 is called)
+%%--------------------------------------------------------------------
+handle_call(roster, _From, State) ->
+    {reply, {ok, State#state.users}, State};
+handle_call(read_topic, _From, State) ->
+    {reply, {ok, State#state.topic}, State};
+handle_call(_Request, _From, State) ->
+    Reply = ok,
+    {reply, Reply, State}.
 
-% Can change the room topic
-change_topic_test() ->
-    {ok, RoomPid} = init(["Room", "Topic"]),
-    change_topic(RoomPid, "Topic1"),
-    {ok, Topic} = read_topic(RoomPid),
+%%--------------------------------------------------------------------
+%% Function: handle_cast/2
+%% Description: Handling cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%%--------------------------------------------------------------------
+handle_cast({join, User}, State = #state{users = Users}) ->
+    {noreply, State#state{users = [User|Users]}};
+handle_cast({leave, User}, State = #state{users = Users}) ->
+    Users1 = lists:delete(User, Users),
+    {noreply, State#state{users = Users1}};
+handle_cast({change_topic, Topic}, State) ->
+    {noreply, State#state{topic = Topic}};
+handle_cast({emit, User, Sender, Msg}, State) ->
+    User ! [{room, State#state.name}, {sender, Sender}, {msg, Msg}],
+    {noreply, State};
+handle_cast({recv, Sender, Msg}, State) ->
+    lists:map(fun(User) ->
+                      User ! [{room, State#state.name},
+                              {sender, Sender},
+                              {msg, Msg}]
+              end, State#state.users),
+    {noreply, State};
+handle_cast(Msg, State) ->
+    {noreply, State}.
+
+%%--------------------------------------------------------------------
+%% Function: handle_info/2
+%% Description: Handling all non call/cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%%--------------------------------------------------------------------
+handle_info(Info, State) ->
+    {noreply, State}.
+
+%%--------------------------------------------------------------------
+%% Function: terminate/2
+%% Description: Shutdown the server
+%% Returns: any (ignored by gen_server)
+%%--------------------------------------------------------------------
+terminate(Reason, State) ->
+    ok.
+
+%%--------------------------------------------------------------------
+%% Func: code_change/3
+%% Purpose: Convert process state when code is changed
+%% Returns: {ok, NewState}
+%%--------------------------------------------------------------------
+code_change(OldVsn, State, Extra) ->
+    {ok, State}.
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+
+
+%%--------------------------------------------------------------------
+%%% Unit tests
+%%--------------------------------------------------------------------
+
+chat_room_test_() ->
+    {inparallel,
+     {setup, fun setup/0, fun cleanup/1,
+      [
+       fun test_read_topic/0,
+       fun test_change_topic/0,
+       fun test_join_adds_user_to_roster/0,
+       fun test_leave_removes_user_from_roster/0,
+       fun test_emit/0,
+       fun test_recv_triggers_emit/0,
+       fun test_roster/0
+      ]
+     }
+    }.
+
+setup() ->
+    {ok, Pid} = start_link(room_name, "room topic"),
+    Pid.
+
+cleanup(Pid) ->
+    exit(Pid, "unit test cleanup").
+
+%% Can read the room topic
+test_read_topic() ->
+    {ok, Topic} = read_topic(room_name),
+    ?assertMatch(Topic, "room topic").
+
+%% Can change the room topic
+test_change_topic() ->
+    change_topic(room_name, "Topic1"),
+    {ok, Topic} = read_topic(room_name),
     ?assertEqual(Topic, "Topic1").
 
-% Terminating test
-terminate_test() ->
-    {ok, RoomPid} = init(["Room", "Topic"]),
-    chat_room:terminate(RoomPid),
-    ?assertNot(is_process_alive(RoomPid)).
+%% Joining a room should return the room topic and roster
+test_join_adds_user_to_roster() ->
+    join(room_name, self()),
+    {ok, Roster} = roster(room_name),
+    Result = lists:any(fun(Elem) ->
+                               Elem == self()
+                       end, Roster),
+    ?assert(Result).
 
-% Joining a room should return the room topic and roster
-join_returns_room_topic_test() ->
-    {ok, RoomPid} = init(["Room", "Topic"]),
-    chat_room:join(RoomPid, self()),
-    {ok, Roster} = roster(RoomPid),
-    ?assertEqual(Roster, [self()]).
+%% Leaving a room removes a user from the roster
+test_leave_removes_user_from_roster() ->
+    join(room_name, self()),
+    leave(room_name, self()),
+    {ok, Roster} = roster(room_name),
+    Result = lists:any(fun(Elem) ->
+                               Elem == self()
+                       end, Roster),
+    ?assertNot(Result).
 
-% Leaving a room removes a user from the roster
-leave_removes_user_from_roster_test() ->
-    {ok, RoomPid} = init(["Room", "Topic"]),
-    join(RoomPid, self()),
-    leave(RoomPid, self()),
-    {ok, Roster} = roster(RoomPid),
-    ?assertEqual(Roster, []).
-
-% Emitting a message sends the message to a specified user in the room
-emit_test() ->
-    {ok, RoomPid} = init(["Room", "Topic"]),
-    join(RoomPid, self()),
-    emit(RoomPid, self(), self(), "Hi"),
+%% Emitting a message sends the message to a specified user in the room
+test_emit() ->
+    join(room_name, self()),
+    emit(room_name, self(), self(), "Hi"),
     Msg = receive
               M -> M
           end,
-    ?assertEqual(Msg, [{room, RoomPid}, {sender, self()}, {msg, "Hi"}]).
+    ?assertEqual(Msg, [{room, room_name}, {sender, self()}, {msg, "Hi"}]).
 
-% Sending a message from a user causes the message to be emitted
-send_triggers_emit_test() ->
-    {ok, RoomPid} = init(["Room", "Topic"]),
-    join(RoomPid, self()),
-    recv(RoomPid, self(), "Hi"),
+%% Sending a message from a user causes the message to be emitted
+test_recv_triggers_emit() ->
+    join(room_name, self()),
+    recv(room_name, self(), "Hi there"),
     Msg = receive
               M -> M
           end,
-    ?assertEqual(Msg, [{room, RoomPid}, {sender, self()}, {msg, "Hi"}]).
+    ?assertEqual(Msg,
+                 [{room, room_name}, {sender, self()}, {msg, "Hi there"}]).
 
-% Requesting the roster returns it
-roster_test() ->
-    {ok, RoomPid} = chat_room:init(["Room", "Topic"]),
-    {ok, Roster} = roster(RoomPid),
-    ?assertEqual(Roster, []).
+%% Requesting the roster returns it
+test_roster() ->
+    {ok, Roster} = roster(room_name).
