@@ -3,9 +3,16 @@
 -behaviour(application).
 
 -export([
+         start/0,
          start/2,
          stop/1
         ]).
+
+start() ->
+    application:start(crypto),
+    application:start(ranch),
+    application:start(cowboy),
+    application:start(simple_chat_server).
 
 start(_Type, _Args) ->
     Dispatch = cowboy_router:compile(

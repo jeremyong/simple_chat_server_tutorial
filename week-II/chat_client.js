@@ -1,5 +1,10 @@
 var websocket;
 
+$(document).ready(function () {
+    $("#connected").hide();
+    $("#content").hide();
+});
+
 function connect()
 {
     wsHost = $("#server").val()
@@ -13,12 +18,16 @@ function connect()
 
 function disconnect() {
     websocket.close();
+    $("#connected").fadeOut();
+    $("#content").fadeOut();
 };
 
 function toggle_connection(){
     if(websocket && websocket.readyState == websocket.OPEN){
+        $("#connectbutton").html("connect");
         disconnect();
     } else {
+        $("#connectbutton").html("disconnect");
         connect();
     };
 };
