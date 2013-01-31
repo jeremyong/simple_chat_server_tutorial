@@ -1,8 +1,25 @@
 var websocket;
 
 $(document).ready(function () {
+    $("#manage_connection input").focus();
     $("#connected").hide();
     $("#content").hide();
+    $("#server").val("ws://localhost:7777");
+    $("#connected").keypress(function(e) {
+        if(e.which == 13) {
+            e.preventDefault();
+            e.stopPropagation();
+            $("#send_txt_btn").click();
+            $("#connected input").val("");
+        }
+    });
+    $("#manage_connection").keypress(function(e) {
+        if(e.which == 13) {
+            e.preventDefault();
+            e.stopPropagation();
+            $("#connectbutton").click();
+        }
+    });
 });
 
 function connect()
@@ -20,6 +37,7 @@ function disconnect() {
     websocket.close();
     $("#connected").fadeOut();
     $("#content").fadeOut();
+    $("#manage_connection input").focus();
 };
 
 function toggle_connection(){
@@ -46,6 +64,7 @@ function onOpen(evt) {
     showScreen('<span style="color: green;">CONNECTED </span>');
     $("#connected").fadeIn('slow');
     $("#content").fadeIn('slow');
+    $("#connected input").focus();
 };
 
 function onClose(evt) {
