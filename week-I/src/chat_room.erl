@@ -22,9 +22,12 @@ run(Name, Topic, Users) ->
         {roster, From} ->
             From ! {roster, Users},
             run(Name, Topic, Users);
-        {join, User} ->
-            io:format("~p joined room ~p", [User, Name]),
+        {join, User, From} ->
+            From ! {ok, Topic, [User|Users]},
             run(Name, Topic, [User|Users]);
+				{leave, User, From} ->
+						From ! {ok, Users -- [User]},
+						run(Name, Topic, Users -- [User]);					
         _ ->
             io:format("Message received"),
             run(Name, Topic, Users)
@@ -42,21 +45,29 @@ change_topic(Room, Topic) ->
     ok.
 
 emit(Room, User, Msg) ->
-    ok.
+    User ! {recv, Msg }.
 
 recv(Room, User, Msg) ->
     ok.
 
 join(Room, User) ->
-    Room ! {join, User}.
+    Room ! {join, User, self()},
+		receive
+			{ok, Topic, Roster} ->
+				{ok, Topic, Roster}
+		end.
 
 leave(Room, User) ->
-    ok.
-
+		Room ! {leave, User, self()},
+		receive
+			{ok, Roster} ->
+			{ok, Roster}
+		end.
+		
 roster(Room) ->
     Room ! {roster, self()},
     receive
-        {roster, Roster} ->
+    	{roster, Roster} ->
             {ok, Roster}
     end.
 
@@ -76,18 +87,21 @@ terminate_test() ->
 % Joining a room should return the room topic
 join_returns_room_topic_test() ->
     {ok, RoomPid} = chat_room:init(["Room", "Topic"]),
-    Return = chat_room:join(RoomPid, "testuser"),
-    ?assert(false).
+    {ok, Topic, Roster} = chat_room:join(RoomPid, "testuser"),
+    ?assert(Topic =:= "Topic").
 
 % Joining a room should return the room roster
 join_returns_room_roster_test() ->
     {ok, RoomPid} = chat_room:init(["Room", "Topic"]),
-    Return = chat_room:join(RoomPid, "testuser"),
-    ?assert(false).
+    {ok, Topic, Roster} = chat_room:join(RoomPid, "testuser"),
+    ?assert(Roster =:= ["testuser"]).
 
 % Leaving a room removes a user from the roster
 leave_removes_user_from_roster_test() ->
-    ?assert(false).
+		{ok, RoomPid} = chat_room:init(["Room", "Topic"]),
+  	{ok, Topic, _} = chat_room:join(RoomPid, "testuser"),
+		{ok, Roster} = chat_room:leave(RoomPid, "testuser"),
+    ?assert(Roster =:= []).
 
 % Emitting a message sends the message to users in the room
 emit_test() ->
@@ -100,5 +114,5 @@ send_triggers_emit_test() ->
 % Requesting the roster returns it
 roster_test() ->
     {ok, RoomPid} = chat_room:init(["Room", "Topic"]),
-
-    ?assert(false).
+		{ok, Roster} = chat_room:roster(RoomPid),
+		?assert(Roster =:= []).

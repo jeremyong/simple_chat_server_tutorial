@@ -3,6 +3,7 @@
 
 -export([
          init/1,
+				 run/1,
          terminate/0,
          send/2,
          recv/3,
@@ -11,7 +12,7 @@
         ]).
 
 init([User]) ->
-    spawn_link(?MODULE, run, [User]).
+		spawn_link(?MODULE, run, [User]).
 
 terminate() ->
     ok.
@@ -30,6 +31,9 @@ leave(Room) ->
 
 run(User) ->
     receive
+				{recv, Msg} ->
+					io:format("~p", Msg),
+					run(User);
         _ ->
             io:format("Message received"),
             run(User)
