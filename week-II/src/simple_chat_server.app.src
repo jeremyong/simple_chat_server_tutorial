@@ -10,8 +10,12 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  crypto,
+                  ranch,
+                  cowboy
                  ]},
+  {mod, {simple_chat_server_app, []}},
   {env, []}
  ]
 }.

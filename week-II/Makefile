@@ -10,7 +10,7 @@ app:
 	@cat src/$(PROJECT).app.src \
 		| sed 's/{modules, \[\]}/{modules, \[${MODULES}\]}/' \
 		> ebin/$(PROJECT).app
-	erlc -v $(ERLC_OPTS) -o ebin -pa ebin \
+	erlc -v $(ERLC_OPTS) -o ebin -pa deps/cowboy/ebin \
 		src/*.erl
 	@$(MAKE) -C $(DEPS_DIR)/ranch
 	@$(MAKE) -C $(DEPS_DIR)/cowboy
